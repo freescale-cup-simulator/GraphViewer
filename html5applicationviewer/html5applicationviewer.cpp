@@ -10,6 +10,7 @@
 #include <QGraphicsWebView>
 #include <QWebFrame>
 #include "logger.h"
+#include "extendedlistitem.h"
 
 #ifdef TOUCH_OPTIMIZED_NAVIGATION
 #include <QTimer>
@@ -965,192 +966,277 @@ void Html5ApplicationViewerPrivate::addToJavaScript()
   m_webView->page()->mainFrame()->addToJavaScriptWindowObject("Qt", this);
 }
 
-Html5ApplicationViewer::Html5ApplicationViewer(QString patch, QWidget *parent)
+Html5ApplicationViewer::Html5ApplicationViewer(QWidget *parent)
 : QWidget(parent)
-, m_d(new Html5ApplicationViewerPrivate(this))
-{
-  connect(m_d, SIGNAL(quitRequested()), SLOT(close()));
-  QPushButton *button_0=new QPushButton("Reload");
-  connect(button_0,SIGNAL(clicked()),SLOT(reload()));
-  buttonWA=new QPushButton("Wheel Angle");
-  connect(buttonWA,SIGNAL(clicked()),SLOT(loadWheelAngle()));
-  buttonWP=new QPushButton("Wheel Power");
-  connect(buttonWP,SIGNAL(clicked()),SLOT(loadWheelPower()));
-  buttonLP=new QPushButton("Line Position");
-  connect(buttonLP,SIGNAL(clicked()),SLOT(loadLinePosition()));
-  QGridLayout *layout = new QGridLayout;
-  layout->addWidget(button_0,0,0);
-  layout->addWidget(buttonWA, 0,2);
-  layout->addWidget(buttonWP,0,3);
-  layout->addWidget(buttonLP,0,4);
-  layout->addWidget(m_d,1,0,1,5);
-  layout->setMargin(5);
-  setLayout(layout);
-  Patch=patch;
-  reload();
-}
-#include <QtDebug>
-void Html5ApplicationViewer::reload()
 {
 
-  QDir dir(Patch);
-  QStringList files=dir.entryList(QStringList("*.dat"),QDir::Files|QDir::NoSymLinks);
-  if(files.length()<1)
+  QHBoxLayout *hbox = new QHBoxLayout;
+  QFrame *right_bottom = new QFrame(this);
+  QGridLayout *layout_RB = new QGridLayout;
+  listOfGraphs=new QListWidget;
+  view=new Html5ApplicationViewerPrivate*[0];
+  listOfGraphNames<<"Current Wheel Angle"<<"Desired Wheel Angle"<<"Wheel Power R"<<"Wheel Power L"<<"Physics Timestep"<<"Control Interval"<<"Line Position";
+  ExtendedListItem **listOfGraph=new ExtendedListItem*[listOfGraphNames.length()];
+  for(int i=0;i<listOfGraphNames.length();i++)
   {
-    loadFile("html/error.html");
-    return;
+    listOfGraph[i]=new ExtendedListItem(listOfGraphs,listOfGraphNames[i],false);
+    connect(listOfGraph[i],SIGNAL(checkBoxChanged(int)),SLOT(potomNazovuFunc()));
   }
-  Logger l;
-  DataSet myDataSet;
-  current_wheel_angle.clear();
-  current_wheel_power.clear();
-  line_position.clear();
-  for(int j=0;j<files.length();j++)
-  {
-    current_wheel_angle<<"0";
-    current_wheel_power<<"0";
-    line_position<<"0";
-    file_names<<files[j];
-    l.setFileName(Patch+files[j]);
-    l.beginRead();
-    for(int i=0;l.canRead();i++)
-    {
-      l>>myDataSet;
-      if ((QString::number(myDataSet.current_wheel_angle)!="nan")&&(QString::number(myDataSet.current_wheel_angle)!="inf"))
-        current_wheel_angle[j]=current_wheel_angle[j]+", "+QString::number(myDataSet.current_wheel_angle);
-      else
-        current_wheel_angle[j]=current_wheel_angle[j]+", null";
-      if ((QString::number(myDataSet.wheel_power_l)!="nan")&&(QString::number(myDataSet.wheel_power_l)!="inf"))
-        current_wheel_power[j]=current_wheel_power[j]+", "+QString::number(myDataSet.wheel_power_l);
-      else
-        current_wheel_power[j]=current_wheel_power[j]+", null";
-      if ((QString::number(myDataSet.line_position)!="nan")&&(QString::number(myDataSet.line_position)!="inf")&&(myDataSet.line_position!=-1))
-        line_position[j]=line_position[j]+", "+QString::number(myDataSet.line_position);
-      else
-        line_position[j]=line_position[j]+", null";
-    }
-    l.endRead();
-  }
-  loadWheelAngle();
+  connect(listOfGraphs,SIGNAL(itemClicked(QListWidgetItem*)),SLOT(selectItem(QListWidgetItem*)));
+  listOfGraphs->show();
+  layout_RB->addWidget(listOfGraphs,0,0);
+  right_bottom->setLayout(layout_RB);
+  QFrame *right_top = new QFrame(this);
+  QPushButton *button_0=new QPushButton("Open File");
+  connect(button_0,SIGNAL(clicked()),SLOT(openFile()));
+  QPushButton *button_1=new QPushButton("Open Folder");
+  connect(button_1,SIGNAL(clicked()),SLOT(openFolder()));
+  QGridLayout *layout_RT = new QGridLayout;
+  listOfOpenedFiles = new QListWidget();
+  connect(listOfOpenedFiles,SIGNAL(itemClicked(QListWidgetItem*)),SLOT(selectItem(QListWidgetItem*)));
+  listOfOpenedFiles->show();
+  layout_RT->addWidget(button_0,0,0);
+  layout_RT->addWidget(button_1,0,1);
+  layout_RT->addWidget(listOfOpenedFiles,1,0,1,0);
+  right_top->setLayout(layout_RT);
+  QSplitter *splitter1 = new QSplitter(Qt::Vertical, this);
+  right_top->setMaximumWidth(190);
+  right_bottom->setMaximumWidth(190);
+  splitter1->addWidget(right_top);
+  splitter1->addWidget(right_bottom);
+  frameWithGraphs = new QFrame(this);
+  redivisionGraph(1);
+  QSplitter *splitter2 = new QSplitter(Qt::Horizontal, this);
+  splitter2->addWidget(frameWithGraphs);
+  splitter2->addWidget(splitter1);
+  hbox->addWidget(splitter2);
+  setLayout(hbox);
+  layout_RT->setMargin(0);
+  layout_RB->setMargin(0);
 }
-void Html5ApplicationViewer::loadWheelAngle(){
-  if(sender()!=webView()->page()->mainFrame())
+void Html5ApplicationViewer::deleteItem()
+{
+  delete sender();
+}
+void Html5ApplicationViewer::selectItem(QListWidgetItem *listWidgetItem)
+{
+  listWidgetItem->setSelected(false);
+  ((ExtendedListItem*)((QListWidget*)sender())->itemWidget(listWidgetItem))->Check();
+}
+
+void Html5ApplicationViewer::openFolder()
+{
+  QString fileName=QFileDialog::getExistingDirectory(this,tr("Open Directory"),lastPatch,QFileDialog::ShowDirsOnly|QFileDialog::DontResolveSymlinks);
+  if (fileName.length()>0)
   {
-    buttonWA->setFlat(true);
-    buttonLP->setFlat(false);
-    buttonWP->setFlat(false);
-    connect(webView()->page()->mainFrame(),SIGNAL(loadFinished(bool)),this,SLOT(loadWheelAngle()));
-    this->loadFile("html/index.html");
+    QDir dir(fileName);
+    QStringList files=dir.entryList(QStringList("*.dat"),QDir::Files|QDir::NoSymLinks);
+    if(files.length()>0)
+    {
+      lastPatch=fileName;
+      for(int j=0;j<files.length();j++)
+      {
+        addFileToList(fileName+"/"+files[j]);
+      }
+    }
+  }
+}
+
+void Html5ApplicationViewer::redivisionGraph(int count)
+{
+  delete frameWithGraphs->layout();
+  if(count<2)
+    count=1;
+  QGridLayout *layout_L = new QGridLayout;
+  delete view;
+  view=new Html5ApplicationViewerPrivate*[count];
+
+  QSplitter **splitter3 = new QSplitter*[3];
+  for (int i = 0; i < count; ++i)
+    view[i]=new Html5ApplicationViewerPrivate(this);
+  for (int i = 0; i < 3; ++i)
+    splitter3[i] = new QSplitter(this);
+  if(count==1)
+    layout_L->addWidget(view[0]);
+  else
+  {
+    int i;
+    for (i = 0; i < (count/2); ++i)
+      splitter3[0]->addWidget(view[i]);
+    for (; i < count; ++i)
+      splitter3[1]->addWidget(view[i]);
+
+    splitter3[2]->addWidget(splitter3[0]);
+    splitter3[2]->addWidget(splitter3[1]);
+    splitter3[2]->setOrientation(Qt::Vertical);
+    layout_L->addWidget(splitter3[2]);
+  }
+  for (int i = 0; i < count; ++i)
+  {
+    view[i]->m_webView->page()->mainFrame()->evaluateJavaScript("document.write(\""+QString::number(i)+"\")");
+
+    connect(view[i]->m_webView,SIGNAL(loadFinished(bool)),SLOT(show1()));
+    load(i,"html/index.html");
+  }
+  layout_L->setMargin(0);
+  frameWithGraphs->setLayout(layout_L);
+}
+
+
+
+void Html5ApplicationViewer::addFileToList(QString fileName)
+{
+  ExtendedListItem *item=new ExtendedListItem(listOfOpenedFiles,fileName);
+  connect(item,SIGNAL(buttonClicked()),SLOT(deleteItem()));
+  connect(item,SIGNAL(checkBoxChanged(int)),SLOT(selectItemToShow(int)));
+}
+
+void Html5ApplicationViewer::openFile()
+{
+  QString fileName=QFileDialog::getOpenFileName(this,tr("Open File"),lastPatch,("Dat files(*.dat)"));
+  if (fileName.length()>0)
+  {
+    lastPatch=fileName;
+    addFileToList(fileName);
+  }
+}
+
+void Html5ApplicationViewer::selectItemToShow(int k)
+{
+  int j;
+
+  if(k){
+    qDebug()<<k;
+    for(int i=0;i<listOfOpenedFiles->count();i++)
+    {
+        ExtendedListItem* item=qobject_cast<ExtendedListItem*>(listOfOpenedFiles->itemWidget(listOfOpenedFiles->item(i)));
+     if(item->isChecked())
+     {
+       Logger l;
+       DataSet myDataSet;
+       l.setFileName(item->getFileSrc());
+
+       if(data.createNew(item->getLabelText()))
+       {
+        l.beginRead();
+        for(j=0;l.canRead();j++)
+        {
+          l>>myDataSet;
+          data.addTo(item->getLabelText(),QString::number(myDataSet.current_wheel_angle,'f'), QString::number(myDataSet.desired_wheel_angle,'f'),QString::number(myDataSet.wheel_power_r,'f'),QString::number(myDataSet.wheel_power_l,'f'),QString::number(myDataSet.physics_timestep,'f'),QString::number(myDataSet.control_interval,'f'),QString::number(myDataSet.line_position));
+        }      
+        l.endRead();
+      }
+    }
+  }
+show1();
   }
   else
   {
-    webView()->page()->mainFrame()->evaluateJavaScript("var DATA=[];");
-    for(int i=0;current_wheel_angle.length()>i;i++)
-    {
-      webView()->page()->mainFrame()->evaluateJavaScript("DATA.push({name: '"+file_names[i]+"',data: ["+current_wheel_angle[i]+"],type: 'spline',tooltip: {valueDecimals: 5}});");
-    }
-    webView()->page()->mainFrame()->evaluateJavaScript("$.getScript('js/main.js');");
-    disconnect(webView()->page()->mainFrame(),SIGNAL(loadFinished(bool)),this,SLOT(loadWheelAngle()));
-  }
-}
+      data.deleteByName(((ExtendedListItem*)sender())->getLabelText());
+      ((ExtendedListItem*)sender())->setClearColorOfCheckBox();
+      /*for (int i = 0; i <listOfOpenedFiles->count(); ++i)
+      {
 
-void Html5ApplicationViewer::loadWheelPower(){
-  if(sender()!=webView()->page()->mainFrame())
+          ExtendedListItem* item=qobject_cast<ExtendedListItem*>(listOfOpenedFiles->itemWidget(listOfOpenedFiles->item(i)));
+          /*int j = 0;
+          if(data.get_name(j)==item->getLabelText())
+            {
+              if(!item->isChecked())
+                  item->setColorOfCheckBox("");
+            }
+      }*/
+  }
+
+}
+void Html5ApplicationViewer::show1()
+{
+    int k=0;
+    for (int i = 0; i <listOfGraphs->count(); ++i) {
+        if(((ExtendedListItem*)listOfGraphs->itemWidget(listOfGraphs->item(i)))->isChecked())
+          {
+            webView(k)->page()->mainFrame()->evaluateJavaScript("var DATA=[];var name;");
+            k++;
+        }
+    }
+
+  for(int i=0;i<data.length();i++)
   {
-    buttonWP->setFlat(true);
-    buttonWA->setFlat(false);
-    buttonLP->setFlat(false);
-    connect(webView()->page()->mainFrame(),SIGNAL(loadFinished(bool)),this,SLOT(loadWheelPower()));
-    this->loadFile("html/index.html");
+      QString color="#000";
+      color=color+QString::number(i,2);
+      if(color.length()>7)
+          color=color.mid(-1,5)+color.mid(6,color.length());
+      color=color.mid(-1,4-(color.length()-5))+color.mid(4,color.length());
+      for (int j = 0; j < color.length(); ++j) {
+          if(color[j]=='1')
+              color[j]='a';
+      }
+      for (int j = 0; j <listOfOpenedFiles->count(); ++j) {
+          if(data.get_name(i)==((ExtendedListItem*)listOfOpenedFiles->itemWidget(listOfOpenedFiles->item(j)))->getLabelText())
+            {
+              ((ExtendedListItem*)listOfOpenedFiles->itemWidget(listOfOpenedFiles->item(j)))->setColorOfCheckBox(color);
+                break;
+          }
+      }
+      k=0;
+      for (int j = 0; j <listOfGraphs->count(); ++j) {
+          if(((ExtendedListItem*)listOfGraphs->itemWidget(listOfGraphs->item(j)))->isChecked())
+            {
+              webView(k)->page()->mainFrame()->evaluateJavaScript("name='"+listOfGraphNames[j]+"';");
+
+              webView(k)->page()->mainFrame()->evaluateJavaScript("DATA.push({name: '"+data.get_name(i)+"',color:'"+color+"',data: ["+data.get(i,j)+"],type: 'spline',tooltip: {valueDecimals: 5}});");
+
+              k++;
+
+          }
+      }
   }
-  else{
-    webView()->page()->mainFrame()->evaluateJavaScript("var DATA=[];");
-    for(int i=0;current_wheel_power.length()>i;i++){
-      webView()->page()->mainFrame()->evaluateJavaScript("DATA.push({name: '"+file_names[i]+"',data: ["+current_wheel_power[i]+"],type: 'spline',tooltip: {valueDecimals: 5}});");
-    }
-    webView()->page()->mainFrame()->evaluateJavaScript("$.getScript('js/main.js');");
-    disconnect(webView()->page()->mainFrame(),SIGNAL(loadFinished(bool)),this,SLOT(loadWheelPower()));
+  k=0;
+  for (int i = 0; i <listOfGraphs->count(); ++i) {
+      if(((ExtendedListItem*)listOfGraphs->itemWidget(listOfGraphs->item(i)))->isChecked())
+        {
+  webView(k)->page()->mainFrame()->evaluateJavaScript("$.getScript('js/main.js');");
+  k++;
+      }
   }
 }
-void Html5ApplicationViewer::loadLinePosition(){
-  if(sender()!=webView()->page()->mainFrame()){
-    buttonLP->setFlat(true);
-    buttonWA->setFlat(false);
-    buttonWP->setFlat(false);
-    connect(webView()->page()->mainFrame(),SIGNAL(loadFinished(bool)),this,SLOT(loadLinePosition()));
-    this->loadFile("html/index.html");
+void Html5ApplicationViewer::changeC(QString color)
+{
+    qDebug()<<color;
+}
+
+void Html5ApplicationViewer::potomNazovuFunc()
+{
+  int count=0;
+  for(int i=0;i<listOfGraphs->count();i++)
+    if(((ExtendedListItem*)listOfGraphs->itemWidget(listOfGraphs->item(i)))->isChecked())
+      count++;
+    redivisionGraph(count);
   }
-  else{
-    webView()->page()->mainFrame()->evaluateJavaScript("var DATA=[];");
-    for(int i=0;line_position.length()>i;i++){
-      webView()->page()->mainFrame()->evaluateJavaScript("DATA.push({name: '"+file_names[i]+"',data: ["+line_position[i]+"],type: 'spline',tooltip: {valueDecimals: 5}});");
-    }
-    webView()->page()->mainFrame()->evaluateJavaScript("$.getScript('js/main.js');");
-    disconnect(webView()->page()->mainFrame(),SIGNAL(loadFinished(bool)),this,SLOT(loadLinePosition()));
+  Html5ApplicationViewer::~Html5ApplicationViewer()
+  {
+    delete listOfOpenedFiles;
+    delete frameWithGraphs;
+    delete view;
   }
-}
 
-Html5ApplicationViewer::~Html5ApplicationViewer()
-{
-  delete m_d;
-}
+  void Html5ApplicationViewer::load(int index, const QString &stringFileSrc)
+  {
+    view[index]->m_webView->setUrl(QUrl::fromLocalFile(Html5ApplicationViewerPrivate::adjustPath(stringFileSrc)));
+  }
 
-void Html5ApplicationViewer::loadFile(const QString &fileName)
-{
-  m_d->m_webView->setUrl(QUrl::fromLocalFile(Html5ApplicationViewerPrivate::adjustPath(fileName)));
-}
 
-void Html5ApplicationViewer::loadUrl(const QUrl &url)
-{
-  m_d->m_webView->setUrl(url);
-}
-
-void Html5ApplicationViewer::setOrientation(ScreenOrientation orientation)
-{
-  Qt::WidgetAttribute attribute;
-  switch (orientation) {
-#if QT_VERSION < 0x040702
-    case ScreenOrientationLockPortrait:
-    attribute = static_cast<Qt::WidgetAttribute>(128);
-    break;
-    case ScreenOrientationLockLandscape:
-    attribute = static_cast<Qt::WidgetAttribute>(129);
-    break;
-    default:
-    case ScreenOrientationAuto:
-    attribute = static_cast<Qt::WidgetAttribute>(130);
-    break;
-#elif QT_VERSION < 0x050000
-    case ScreenOrientationLockPortrait:
-    attribute = Qt::WA_LockPortraitOrientation;
-    break;
-    case ScreenOrientationLockLandscape:
-    attribute = Qt::WA_LockLandscapeOrientation;
-    break;
-    default:
-    case ScreenOrientationAuto:
-    attribute = Qt::WA_AutoOrientation;
-    break;
-#else
-    default:
-    attribute = Qt::WidgetAttribute();
-#endif
-  };
-  setAttribute(attribute, true);
-}
-
-void Html5ApplicationViewer::showExpanded()
-{
+  void Html5ApplicationViewer::showExpanded()
+  {
 #if defined(Q_WS_MAEMO_5)
-  showMaximized();
+    showMaximized();
 #else
-  show();
+    show();
 #endif
-}
+  }
 
-QGraphicsWebView *Html5ApplicationViewer::webView() const
-{
-  return m_d->m_webView;
-}
+  QGraphicsWebView *Html5ApplicationViewer::webView(int index) const
+  {
+    return view[index]->m_webView;
+  }
 
 #include "html5applicationviewer.moc"

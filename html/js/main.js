@@ -1,66 +1,76 @@
 $(function() {
-        $('#container').highcharts('StockChart', {
-        series:DATA,
+  $('#container').highcharts('StockChart', {
+    series:DATA,
+    title:
+    {
+     text:name,
+     style:{
+      color:'#111',
+      fontWeight:'bold',
+      fontSize:'12px'
+     }
+   },
+
+   /******************* Настройки *********************/
 
 
-/******************* Настройки *********************/
+   scrollbar:{
+    height:10
+  },
 
-        legend:{
-            enabled: true
-        },
+  chart: {
+    backgroundColor:'rgba(255, 255, 255, 0.8)',
 
-        navigator:{
-            height:20
-        },
+  },
 
-        scrollbar:{
-            height:10
-        },
+  rangeSelector: {
+    selected: 1
+  },
 
-        chart: {
-            backgroundColor:'rgba(255, 255, 255, 0.8)',
-            
-        },
+  credits: {
+    enabled: false
+  },
 
-        rangeSelector: {
-            selected: 1
-        },
+  exporting: {
+    enabled: false
+  },
+  navigator:{
+    height: 100
+  },
+  chart:{
+    spacingBottom:1,
+    spacingLeft:1,
+    spacingRight:1,
+    spacingTop:1
+  },
+  xAxis:{
+    labels:{
+      formatter:function(){
+        return this.value;
+      }
+    }
+  },
+  tooltip: {
+    formatter: function() {
+      var s = '<b>'+ Highcharts.dateFormat('%L', this.x) +'</b>';
 
-        credits: {
-            enabled: false
-        },
+      $.each(this.points, function(i, point) {
+        s += '<br/>'+point.series.name+': '+ point.y;
+      });
 
-        exporting: {
-            enabled: false
-        },
-        xAxis:{
-            labels:{
-                formatter:function(){
-                    return this.value;
-                }
-            }
-        },
-                                       tooltip: {
-                                                  formatter: function() {
-                                                      var s = '<b>'+ Highcharts.dateFormat('%L', this.x) +'</b>';
+      return s;
+    }
+  },
+  navigator:{xAxis:{
+   labels:{
+     formatter:function(){
+       return this.value;
+     }
+   }}
+ },
 
-                                                      $.each(this.points, function(i, point) {
-                                                          s += '<br/>'+point.series.name+': '+ point.y;
-                                                      });
-
-                                                      return s;
-                                                  }
-                                              },
-                                       navigator:{xAxis:{
-                                           labels:{
-                                               formatter:function(){
-                                                   return this.value;
-                                               }
-                                           }}
-                                       },
-
-        rangeSelector: {
-            enabled:false
-        }
-    });
+ rangeSelector: {
+  enabled:false
+}
+});
 });

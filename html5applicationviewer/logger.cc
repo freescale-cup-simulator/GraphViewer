@@ -1,8 +1,8 @@
 #include "logger.h"
 
 Logger::Logger ()
-    : m_stream(0)
-    , m_file(0)
+    : m_file(0)
+    , m_stream(0)
     , m_mode(Logger::Closed)
     , m_written(0)
 {
@@ -86,9 +86,8 @@ Logger & Logger::operator <<(DataSet &dataset)
         return *this;
     }
     m_stream.writeRawData((char *)dataset.camera_pixels,CAMERA_FRAME_LEN);
-    m_stream<<dataset.camera_position;
-    m_stream<<dataset.camera_rotation;
-    m_stream<<dataset.camera_rotation_quat;
+    m_stream<<dataset.camera.p;
+    m_stream<<dataset.camera.q;
     m_stream<<dataset.control_interval;
     m_stream<<dataset.current_wheel_angle;
     m_stream<<dataset.desired_wheel_angle;
@@ -110,9 +109,8 @@ Logger &Logger::operator >>(DataSet &dataset)
         return *this;
     }
     m_stream.readRawData((char *)dataset.camera_pixels,CAMERA_FRAME_LEN);
-    m_stream>>dataset.camera_position;
-    m_stream>>dataset.camera_rotation;
-    m_stream>>dataset.camera_rotation_quat;
+    m_stream>>dataset.camera.p;
+    m_stream>>dataset.camera.q;
     m_stream>>dataset.control_interval;
     m_stream>>dataset.current_wheel_angle;
     m_stream>>dataset.desired_wheel_angle;
