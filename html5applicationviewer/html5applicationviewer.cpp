@@ -1128,25 +1128,13 @@ void Html5ApplicationViewer::selectItemToShow(int k)
       }
     }
   }
-show1();
   }
   else
   {
       data.deleteByName(((ExtendedListItem*)sender())->getLabelText());
       ((ExtendedListItem*)sender())->setClearColorOfCheckBox();
-      /*for (int i = 0; i <listOfOpenedFiles->count(); ++i)
-      {
-
-          ExtendedListItem* item=qobject_cast<ExtendedListItem*>(listOfOpenedFiles->itemWidget(listOfOpenedFiles->item(i)));
-          /*int j = 0;
-          if(data.get_name(j)==item->getLabelText())
-            {
-              if(!item->isChecked())
-                  item->setColorOfCheckBox("");
-            }
-      }*/
-  }
-
+  }  
+  show1();
 }
 void Html5ApplicationViewer::show1()
 {
