@@ -33,6 +33,11 @@ void ExtendedListItem::setColorOfCheckBox(QString color)
     listWItemParent->setBackgroundColor(QColor(color));
     checkBox->setStyleSheet("QCheckBox{color:white;background:"+color+"}");
 }
+QString ExtendedListItem::getColor()
+{
+     return (listWItemParent->backgroundColor().name());
+}
+
 void ExtendedListItem::setClearColorOfCheckBox()
 {
 

@@ -1,5 +1,5 @@
 $(function() {
-  $('#container').highcharts('StockChart', {
+  var chart=$('#container').highcharts('StockChart', {
     series:DATA,
     title:
     {

@@ -985,6 +985,9 @@ Html5ApplicationViewer::Html5ApplicationViewer(QWidget *parent)
   connect(listOfGraphs,SIGNAL(itemClicked(QListWidgetItem*)),SLOT(selectItem(QListWidgetItem*)));
   listOfGraphs->show();
   layout_RB->addWidget(listOfGraphs,0,0);
+  button_Save=new QPushButton("Save image");
+  layout_RB->addWidget(button_Save,1,0);
+  connect(button_Save,SIGNAL(clicked()),SLOT(saveImages()));
   right_bottom->setLayout(layout_RB);
   QFrame *right_top = new QFrame(this);
   QPushButton *button_0=new QPushButton("Open File");
@@ -1005,7 +1008,7 @@ Html5ApplicationViewer::Html5ApplicationViewer(QWidget *parent)
   splitter1->addWidget(right_top);
   splitter1->addWidget(right_bottom);
   frameWithGraphs = new QFrame(this);
-  redivisionGraph(1);
+  redivisionGraph(0);
   QSplitter *splitter2 = new QSplitter(Qt::Horizontal, this);
   splitter2->addWidget(frameWithGraphs);
   splitter2->addWidget(splitter1);
@@ -1045,12 +1048,10 @@ void Html5ApplicationViewer::openFolder()
 void Html5ApplicationViewer::redivisionGraph(int count)
 {
   delete frameWithGraphs->layout();
-  if(count<2)
-    count=1;
+
   QGridLayout *layout_L = new QGridLayout;
   delete view;
   view=new Html5ApplicationViewerPrivate*[count];
-
   QSplitter **splitter3 = new QSplitter*[3];
   for (int i = 0; i < count; ++i)
     view[i]=new Html5ApplicationViewerPrivate(this);
@@ -1058,7 +1059,7 @@ void Html5ApplicationViewer::redivisionGraph(int count)
     splitter3[i] = new QSplitter(this);
   if(count==1)
     layout_L->addWidget(view[0]);
-  else
+  else if(count>1)
   {
     int i;
     for (i = 0; i < (count/2); ++i)
@@ -1078,6 +1079,10 @@ void Html5ApplicationViewer::redivisionGraph(int count)
     connect(view[i]->m_webView,SIGNAL(loadFinished(bool)),SLOT(show1()));
     load(i,"html/index.html");
   }
+  if (count>0)
+      button_Save->setEnabled(true);
+  else
+      button_Save->setEnabled(false);
   layout_L->setMargin(0);
   frameWithGraphs->setLayout(layout_L);
 }
@@ -1187,10 +1192,6 @@ void Html5ApplicationViewer::show1()
       }
   }
 }
-void Html5ApplicationViewer::changeC(QString color)
-{
-    qDebug()<<color;
-}
 
 void Html5ApplicationViewer::potomNazovuFunc()
 {
@@ -1200,6 +1201,74 @@ void Html5ApplicationViewer::potomNazovuFunc()
       count++;
     redivisionGraph(count);
   }
+void Html5ApplicationViewer::saveImages()
+{
+    QString Patch=QFileDialog::getSaveFileName(this,"Save images",lastPatch);
+    if(Patch!="")
+{
+        button_Save->setEnabled(false);
+        QString save_name=button_Save->text();
+        button_Save->setText("Saving...");
+        lastPatch=Patch;
+                int k=0;
+    for(int i=0;i<listOfGraphs->count();i++)
+        {
+            if(((ExtendedListItem*)listOfGraphs->itemWidget(listOfGraphs->item(i)))->isChecked())
+            {
+
+                QString str=webView(k)->page()->mainFrame()->toHtml();
+                str=str.mid(str.indexOf("<svg"),str.indexOf("/svg>")-str.indexOf("<svg")+5);
+                QStringList strl;//
+                strl<<"<rect rx=\"5\""<<"r"<<"<g class=\"highcharts-scrollbar"<<"g"<<"<g class=\"highcharts-navigator"<<"g"<<"<g style=\"cursor:e-resize;"<<"g"<<"<g style=\"cursor:e-resize"<<"g"<<"<g class=\"highcharts-series\" visibility=\"visible\" zIndex=\"0.1\" transform=\"translate(11,"<<"g"<<"<g class=\"highcharts-grid\" zIndex=\"1\"><path fill=\"none\" d=\"M 10.5"<<"g"<<"<g class=\"highcharts-axis-labels\" zIndex=\"7\"><text x=\"14\""<<"g";
+                for (int j = 0; j < strl.length()-1; j+=2) {
+                    QString str_t="";
+                    str_t=str.mid(-1,str.indexOf(strl[j])+1);
+                    int h=str.indexOf(strl[j]);
+                    qDebug()<<strl[j];
+                    int k=0;
+                    do
+                    {
+                        if(str[h]=='<')
+                            if(str[h+1]==strl[j+1][0])
+                                k++;
+                        if(str[h]=='/')
+                            if(str[h+1]==strl[j+1][0])
+                                k--;
+                        h++;
+                    }
+                    while(k>0);
+                    str=str.mid(h+2,str.length());
+                    str=str_t+str;
+                }
+                QString height=str.mid(str.indexOf("height=\"")+8,str.indexOf("\">")-(str.indexOf("height=")+8));
+                str=str.mid(-1,str.indexOf("height=\"")+9)+"100%"+(str.mid(str.indexOf("height=\"")+9,str.length())).mid((str.mid(str.indexOf("height=\"")+9,str.length())).indexOf("\""),str.length());
+                str=str.mid(-1,str.indexOf("width=\"")+9)+"100%"+(str.mid(str.indexOf("width=\"")+9,str.length())).mid((str.mid(str.indexOf("width=\"")+9,str.length())).indexOf("\""),str.length());
+                height=QString::number(height.toInt()-40);
+                for (int j = 0; j < listOfOpenedFiles->count(); ++j) {
+                    ExtendedListItem *item=(ExtendedListItem*)listOfOpenedFiles->itemWidget(listOfOpenedFiles->item(j));
+                    if(item->isChecked())
+                    {
+                        str=str.mid(-1,str.length()-5)+"<rect rx=\"3\" ry=\"3\" fill=\""+item->getColor()+"\" x=\"5\" y=\""+QString::number(height.toInt()-6)+"\" width=\"20\" height=\"3\"></rect><text x=\"30\" y=\""+height+"\" style=\"font-family:&quot;Lucida Grande&quot;, &quot;Lucida Sans Unicode&quot;, Verdana, Arial, Helvetica, sans-serif;font-size:12px;color:#333333;fill:#333333;\" zIndex=\"1\">"+item->getLabelText()+"</text></svg>";
+                        height=QString::number((height.toInt())+20);
+                    }
+                }
+                QFile file(lastPatch+" "+listOfGraphNames[i]+".svg");
+                if(file.open(QIODevice::WriteOnly|QIODevice::Text))
+                {
+                    QTextStream stream(&file);
+                    stream<<str;
+                }
+                file.close();
+                   // webView(k)->page()->mainFrame()->evaluateJavaScript("$.getScript('js/render.js');");
+                    k++;
+            }
+        }
+
+    button_Save->setEnabled(true);
+    button_Save->setText(save_name);
+    }
+}
+
   Html5ApplicationViewer::~Html5ApplicationViewer()
   {
     delete listOfOpenedFiles;

@@ -23,6 +23,7 @@ class Html5ApplicationViewer : public QWidget
     QString lastPatch="";//путь последнегоудачного открытия файла
     QFrame *frameWithGraphs;//фрейм в котором будут отображатся графики
     QStringList listOfGraphNames;
+    QPushButton *button_Save;
     void addFileToList(QString fileName);//добавление файлов в
 public:
     enum ScreenOrientation {
@@ -44,8 +45,8 @@ public slots:
     void selectItem(QListWidgetItem* listWidgetItem);//установка галочек выбора
     void selectItemToShow(int i);//Загрузка/удаление данных из файла в программе
     void show1();//перерисовка графика
-    void changeC(QString color);
     void potomNazovuFunc();//функция для обработки выбора типа графика
+    void saveImages();
 };
 
 #endif

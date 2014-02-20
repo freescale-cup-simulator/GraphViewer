@@ -32,6 +32,7 @@ public:
         bool isChecked();        
         void setColorOfCheckBox(QString color);
         void setClearColorOfCheckBox();
+        QString getColor();
         QListWidgetItem* parent1();
 };
 
